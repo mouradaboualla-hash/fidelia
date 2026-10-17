@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Administración · Fidelia</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="/styles.css">
+<script src="/common.js"></script>
+</head>
+<body>
+<header class="top wrap"><div class="in"><a class="brand" href="/"><i>F</i>fidelia</a><div class="steps">Administración</div></div></header>
+<main class="wrap" id="root"></main>
+<script>
+let key=lsGet("f_admin",null);
+function entrar(msg=""){
+  $("#root").innerHTML=`<form class="card form" id="f"><h2>Administración</h2><div><label class="l" for="k">Clave de administrador</label><input id="k" type="password" autocomplete="current-password"></div><div class="err">${esc(msg)}</div><button class="btn">Entrar</button></form>`;
+  $("#f").onsubmit=e=>{e.preventDefault();key=$("#k").value;cargar()};
+}
+async function cargar(){
+  let d; try{d=await api("/api/admin",{headers:{"x-admin-key":key}})}catch(e){lsSet("f_admin",null);return entrar(e.message)}
+  lsSet("f_admin",key);
+  const t=d.tiendas, clientes=t.reduce((s,x)=>s+x.clientes,0), compras=t.reduce((s,x)=>s+x.compras,0);
+  $("#root").innerHTML=`<div class="eyebrow">Administración</div><h2 style="margin-top:8px">Tiendas registradas</h2>
+  <div class="stat-row" style="margin:18px 0"><div class="stat"><b>${t.length}</b><span>tiendas</span></div><div class="stat"><b>${clientes}</b><span>clientes finales</span></div><div class="stat"><b>${compras}</b><span>compras registradas</span></div></div>
+  <div class="card tbl">${t.length?`<table><thead><tr><th>Tienda</th><th>Web</th><th>Correo</th><th>Tipo</th><th>Locales</th><th style="text-align:right">Clientes</th><th style="text-align:right">Compras</th><th>Alta</th></tr></thead><tbody>
+  ${t.map(x=>`<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${esc(x.color)};margin-right:6px"></span><a href="/a/${esc(x.slug)}" target="_blank">${esc(x.nombre)}</a></td><td>${esc(x.web)}</td><td>${esc(x.email)}</td><td>${esc(x.tipo)}</td><td>${esc(x.ubic)}</td><td class="n">${x.clientes}</td><td class="n">${x.compras}</td><td>${esc(String(x.creada).slice(0,10))}</td></tr>`).join("")}
+  </tbody></table>`:`<p class="hint">Todavía no se ha creado ninguna app. Cuando una tienda complete el paso 3, aparecerá aquí con su correo y su web.</p>`}</div>
+  <button class="btn ghost sm" id="salir" style="margin-top:16px">Salir</button>`;
+  $("#salir").onclick=()=>{lsSet("f_admin",null);key=null;entrar()};
+}
+key?cargar():entrar();
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "fidelia",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Plataforma para que las tiendas creen su app de fidelización",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.0"
+  }
+}

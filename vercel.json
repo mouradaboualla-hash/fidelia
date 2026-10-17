@@ -1,0 +1,13 @@
+{
+  "outputDirectory": "public",
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/a/:slug/manifest.webmanifest", "destination": "/api/manifest?slug=:slug" },
+    { "source": "/a/:slug/icon.svg", "destination": "/api/icon?slug=:slug" },
+    { "source": "/a/:slug", "destination": "/app.html" },
+    { "source": "/panel/:slug", "destination": "/panel.html" }
+  ],
+  "headers": [
+    { "source": "/sw.js", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+  ]
+}

@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fidelia · Crea la app de fidelización de tu tienda</title>
+<meta name="description" content="Escribe la web de tu negocio y crea gratis la app de fidelización de tu tienda: puntos, recompensas y cupones para tus clientes.">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="/styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="/common.js"></script>
+</head>
+<body>
+<header class="top wrap"><div class="in">
+  <a class="brand" href="/" id="home"><i>F</i>fidelia</a>
+  <div class="steps" id="steps">Paso 1 de 3 · Sitio web</div>
+</div></header>
+<main class="wrap" id="root"></main>
+
+<script>
+let st = lsGet("f_draft",null) || {step:1,web:"",email:"",tipo:"fisica",ubic:"1",nombre:"",sector:"servicios",color:"#2b4cff",colores:[],logo:"",unidad:"",rewards:[],cupon:"10 % de descuento en tu primera compra"};
+const guardar=()=>lsSet("f_draft",st);
+const pasos=t=>$("#steps").textContent=t;
+
+/* ---------- Paso 1 ---------- */
+function paso1(){
+  pasos("Paso 1 de 3 · Sitio web");
+  $("#root").innerHTML=`
+  <div class="center">
+    <div class="eyebrow">Crea tu propia app</div>
+    <h1>¿Cómo quedaría la <em>app</em> de fidelización de tu tienda?</h1>
+    <p class="lead">Escribe la web de tu negocio. Leemos tu logo, tus colores y tu sector, elegimos las recompensas que mejor funcionan y ves tu app al momento.</p>
+  </div>
+  <form class="card form" id="f1" novalidate>
+    <div><label class="l" for="web">Sitio web de tu negocio <b>*</b></label>
+      <input id="web" type="text" inputmode="url" autocomplete="url" placeholder="tu-tienda.es" value="${esc(st.web)}"></div>
+    <div><label class="l" for="email">Correo electrónico <b>*</b></label>
+      <input id="email" type="email" autocomplete="email" placeholder="nombre@tutienda.es" value="${esc(st.email)}"></div>
+    <div><span class="l" id="tl">Tipo de negocio <b>*</b></span>
+      <div class="seg" role="group" aria-labelledby="tl">
+        ${[["fisica","Tienda(s) física(s)"],["online","Tienda online"],["hosteleria","Hostelería"],["servicios","Servicios"]].map(([k,n])=>`<button type="button" data-t="${k}" aria-pressed="${st.tipo===k}">${n}</button>`).join("")}
+      </div></div>
+    <div><label class="l" for="ubic">Número de locales <b>*</b></label>
+      <select id="ubic">${["1","2–5","6–20","Más de 20"].map(v=>`<option ${st.ubic===v?"selected":""}>${v}</option>`).join("")}</select></div>
+    <label style="display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--muted)"><input type="checkbox" id="ok" style="margin-top:4px"> Acepto que Fidelia guarde mis datos para crear mi app y contactarme sobre ella.</label>
+    <div class="err" id="e1"></div>
+    <button class="btn" type="submit">Ver mi app →</button>
+    <div class="trust"><span>Gratis</span><span>Sin descargar nada</span><span>Lista en 2 minutos</span></div>
+  </form>`;
+  document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{st.tipo=b.dataset.t;document.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed",x===b))});
+  $("#f1").onsubmit=e=>{
+    e.preventDefault();
+    const web=$("#web").value.trim(), email=$("#email").value.trim();
+    const dom=web.replace(/^https?:\/\//i,"").replace(/^www\./i,"").split(/[\/?#]/)[0].toLowerCase();
+    if(!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(dom)){$("#e1").textContent="Escribe la web sin espacios, por ejemplo: mitienda.es";return}
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){$("#e1").textContent="Revisa el correo: falta la @ o el dominio.";return}
+    if(!$("#ok").checked){$("#e1").textContent="Marca la casilla para continuar.";return}
+    st.web=dom; st.email=email; st.ubic=$("#ubic").value; guardar(); analizar();
+  };
+}
+
+/* ---------- Análisis real de la web ---------- */
+function colorDeLogo(src){
+  return new Promise(ok=>{
+    const img=new Image(); img.crossOrigin="anonymous";
+    img.onload=()=>{try{
+      const c=document.createElement("canvas"),s=Math.min(1,120/Math.max(img.width||120,img.height||120));
+      c.width=Math.max(1,Math.round((img.width||120)*s));c.height=Math.max(1,Math.round((img.height||120)*s));
+      const x=c.getContext("2d");x.drawImage(img,0,0,c.width,c.height);
+      const d=x.getImageData(0,0,c.width,c.height).data,b={};
+      for(let i=0;i<d.length;i+=8){if(d[i+3]<200)continue;const r=d[i],g=d[i+1],bl=d[i+2],mx=Math.max(r,g,bl),mn=Math.min(r,g,bl);
+        if(mx-mn<30||mx<30||mn>225)continue;const k=[r,g,bl].map(v=>Math.min(255,Math.round(v/24)*24)).join(",");b[k]=(b[k]||0)+1}
+      const top=Object.entries(b).sort((a,b)=>b[1]-a[1])[0];
+      ok(top?"#"+top[0].split(",").map(v=>(+v).toString(16).padStart(2,"0")).join(""):null);
+    }catch(e){ok(null)}};
+    img.onerror=()=>ok(null); img.src=src; setTimeout(()=>ok(null),6000);
+  });
+}
+function aplicarSector(sec){const s=SECTORES[sec]||SECTORES.servicios;st.sector=sec in SECTORES?sec:"servicios";st.rewards=s.r.map(([t,p])=>({t,p}));st.unidad=s.unit}
+
+async function analizar(){
+  pasos("Paso 2 de 3 · Analizando");
+  const lista=[`Leyendo ${st.web}`,"Buscando tu logo","Sacando tus colores de marca","Identificando tu sector","Eligiendo las mejores recompensas"];
+  $("#root").innerHTML=`<div class="center"><div class="eyebrow">Un momento</div><h2>Estamos creando tu app</h2></div><div class="scan">${lista.map((p,i)=>`<div class="row" id="s${i}"><span class="dot"></span>${esc(p)}</div>`).join("")}</div><p class="hint center" id="aviso"></p>`;
+  const marcar=i=>{if(i>0){const p=$("#s"+(i-1));p.className="row done";p.querySelector(".dot").textContent="✓"}if(i<lista.length)$("#s"+i).className="row run"};
+  const espera=ms=>new Promise(r=>setTimeout(r,matchMedia("(prefers-reduced-motion: reduce)").matches?50:ms));
+  marcar(0);
+  const peticion=api("/api/analizar",{method:"POST",body:{web:st.web}}).catch(e=>({error:e.message}));
+  await espera(700); marcar(1);
+  const d=await peticion;
+  const nombreDom=st.web.split(".")[0].split("-").map(w=>w[0].toUpperCase()+w.slice(1)).join(" ");
+  if(d.error){
+    $("#aviso").textContent="No pudimos leer tu web del todo. Hemos preparado la app con lo básico y puedes ajustarla.";
+    st.nombre=nombreDom; st.logo=""; st.colores=[]; aplicarSector(st.tipo==="hosteleria"?"restaurante":"servicios");
+  } else {
+    st.nombre=d.nombre||nombreDom; st.logo=d.logo||""; st.colores=d.colores||[];
+    aplicarSector(d.sector==="servicios"&&st.tipo==="hosteleria"?"restaurante":d.sector);
+  }
+  await espera(500); marcar(2);
+  let delLogo=null; if(st.logo) delLogo=await colorDeLogo(logoSrc(st.logo));
+  if(st.logo&&!delLogo&&!st.colores.length){/* el logo no se pudo leer: lo dejamos igualmente */}
+  st.colores=[...new Set([delLogo,...st.colores].filter(Boolean))].slice(0,6);
+  st.color=st.colores[0]||SECTORES[st.sector].col;
+  await espera(500); marcar(3); await espera(500); marcar(4); await espera(500); marcar(5);
+  st.step=2; guardar(); await espera(300); editor();
+}
+
+/* ---------- Paso 2: editor ---------- */
+function editor(){
+  pasos("Paso 2 de 3 · Tu app");
+  const opts=Object.entries(SECTORES).map(([k,v])=>`<option value="${k}" ${st.sector===k?"selected":""}>${v.n}</option>`).join("");
+  $("#root").innerHTML=`
+  <div><div class="eyebrow">Hemos analizado ${esc(st.web)}</div><h2 style="margin-top:10px">Así quedaría tu app. Ajústala a tu gusto.</h2>
+  <p class="hint">Todo lo que cambies se ve al momento en el móvil.</p></div>
+  <div class="studio">
+    <div class="ed">
+      <div class="card"><h3>Tu marca</h3>
+        <div><label class="l" for="nombre">Nombre del negocio</label><input id="nombre" type="text" maxlength="60" value="${esc(st.nombre)}"></div>
+        <div class="logo-drop"><div class="logo-box" id="lbox">${st.logo?`<img src="${esc(logoSrc(st.logo))}" alt="Logo">`:"Tu logo"}</div>
+          <div><label class="btn ghost sm" for="logo">${st.logo?"Cambiar logo":"Subir logo"}</label><input id="logo" type="file" accept="image/*" hidden>
+          <p class="hint" style="margin-top:6px">${st.logo?"Lo hemos sacado de tu web.":"Súbelo y sacamos tu color de marca."}</p></div></div>
+        <div><span class="l">Color de la app</span><div class="swatches" id="sws"></div>${st.colores.length?'<p class="hint" style="margin-top:8px">Los primeros colores salen de tu web.</p>':""}</div>
+        <div><label class="l" for="sector">Sector</label><select id="sector">${opts}</select></div>
+      </div>
+      <div class="card"><h3>Recompensas</h3><p class="hint">Tus clientes suman puntos y los canjean por esto.</p>
+        <div><label class="l" for="unidad">Cómo se ganan los puntos</label><input id="unidad" type="text" maxlength="60" value="${esc(st.unidad)}"></div>
+        <div id="rws" style="display:grid;gap:8px"></div>
+        <button class="btn ghost sm" type="button" id="addr" style="justify-self:start">+ Añadir recompensa</button>
+      </div>
+      <div class="card"><h3>Cupón de bienvenida</h3><input id="cupon" type="text" maxlength="80" value="${esc(st.cupon)}"></div>
+    </div>
+    <div class="phone-col">
+      <div class="phone"><div class="screen" id="prev"></div></div>
+      <div class="cta"><button class="btn" id="crear">Crear mi app</button>
+        <button class="btn ghost sm" id="atras">← Cambiar la web</button><div class="err" id="ce"></div></div>
+    </div>
+  </div>`;
+  const prev=()=>{$("#prev").innerHTML=appHTML(st,{demo:true});drawQRs($("#prev"),110);guardar()};
+  const sws=()=>{const l=[...new Set([st.color,...st.colores,...COLORES])].slice(0,10);
+    $("#sws").innerHTML=l.map(c=>`<button class="sw" type="button" style="background:${c}" data-c="${c}" aria-label="Color ${c}" aria-pressed="${c===st.color}"></button>`).join("")+`<input type="color" id="cp" value="${st.color}" aria-label="Elegir otro color" style="width:42px;height:38px;border:0;background:none;padding:0">`;
+    $("#sws").querySelectorAll(".sw").forEach(b=>b.onclick=()=>{st.color=b.dataset.c;sws();prev()});
+    $("#cp").oninput=e=>{st.color=e.target.value;prev()};$("#cp").onchange=()=>sws()};
+  const rws=()=>{$("#rws").innerHTML=st.rewards.map((r,i)=>`<div class="rw"><input type="text" id="rt${i}" maxlength="60" value="${esc(r.t)}" aria-label="Recompensa"><input type="number" id="rp${i}" min="1" value="${r.p}" aria-label="Puntos necesarios"><button class="x" type="button" data-i="${i}" aria-label="Quitar">×</button></div>`).join("");
+    st.rewards.forEach((r,i)=>{$("#rt"+i).oninput=e=>{r.t=e.target.value;prev()};$("#rp"+i).oninput=e=>{r.p=Math.max(1,parseInt(e.target.value)||1);prev()}});
+    $("#rws").querySelectorAll(".x").forEach(b=>b.onclick=()=>{st.rewards.splice(+b.dataset.i,1);rws();prev()})};
+  $("#nombre").oninput=e=>{st.nombre=e.target.value;prev()};
+  $("#unidad").oninput=e=>{st.unidad=e.target.value;prev()};
+  $("#cupon").oninput=e=>{st.cupon=e.target.value;prev()};
+  $("#sector").onchange=e=>{aplicarSector(e.target.value);$("#unidad").value=st.unidad;rws();prev()};
+  $("#addr").onclick=()=>{if(st.rewards.length>=12)return;st.rewards.push({t:"Nueva recompensa",p:100});rws();prev()};
+  $("#logo").onchange=e=>{const f=e.target.files[0];if(!f)return;const fr=new FileReader();fr.onload=()=>{const img=new Image();img.onload=async()=>{
+      const s=Math.min(1,256/Math.max(img.width,img.height)),c=document.createElement("canvas");c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);
+      c.getContext("2d").drawImage(img,0,0,c.width,c.height);st.logo=c.toDataURL("image/png");
+      const col=await colorDeLogo(st.logo);if(col){st.color=col;st.colores=[col,...st.colores.filter(x=>x!==col)].slice(0,6);toast("Color de marca sacado de tu logo")}
+      $("#lbox").innerHTML=`<img src="${st.logo}" alt="Logo">`;sws();prev()};img.src=fr.result};fr.readAsDataURL(f)};
+  $("#atras").onclick=()=>{st.step=1;guardar();paso1()};
+  $("#crear").onclick=crear;
+  sws();rws();prev();
+}
+
+/* ---------- Paso 3: crear ---------- */
+async function crear(){
+  const b=$("#crear");b.disabled=true;b.textContent="Creando tu app…";$("#ce").textContent="";
+  try{
+    const r=await api("/api/tiendas",{method:"POST",body:{nombre:st.nombre,web:st.web,email:st.email,tipo:st.tipo,ubic:st.ubic,sector:st.sector,color:st.color,logo:st.logo,unidad:st.unidad,rewards:st.rewards,cupon:st.cupon}});
+    const mias=lsGet("f_mias",{});mias[r.slug]=r.clave;lsSet("f_mias",mias);
+    lsSet("f_draft",null);hecho(r.slug,r.clave);
+  }catch(e){b.disabled=false;b.textContent="Crear mi app";$("#ce").textContent=e.message}
+}
+function hecho(slug,clave){
+  pasos("Paso 3 de 3 · Lista");
+  const app=location.origin+"/a/"+slug, panel=location.origin+"/panel/"+slug;
+  $("#root").innerHTML=`
+  <div><div class="eyebrow">Tu app está creada</div><h1 style="font-size:clamp(30px,6vw,48px)">${esc(st.nombre)} ya tiene su club de fidelización</h1>
+  <p class="lead" style="margin:0">Imprime el QR para el mostrador o comparte el enlace. Tus clientes abren la app en el móvil y la añaden a su pantalla de inicio.</p></div>
+  <div class="done-grid">
+    <div class="card" style="display:grid;gap:14px;justify-items:start">
+      <h3>Para tus clientes</h3>
+      <div class="qr" data-qr="${esc(app)}" style="border:1px solid var(--line)"></div>
+      <div class="linkbox"><span>${esc(app)}</span><button class="btn sm" id="c1">Copiar</button></div>
+      <a class="btn ghost sm" href="/a/${esc(slug)}" target="_blank">Abrir la app</a>
+    </div>
+    <div class="card" style="display:grid;gap:14px;align-content:start">
+      <h3>Tu panel de tienda</h3>
+      <p class="hint">Escanea el QR del cliente para sumarle puntos o canjear recompensas.</p>
+      <div class="linkbox"><span>${esc(panel)}</span><button class="btn sm" id="c2">Copiar</button></div>
+      <div><span class="l">Clave del panel</span><div class="code" style="font-size:30px">${esc(clave)}</div></div>
+      <p class="note">Apúntala ahora: la necesitas para entrar al panel desde cualquier móvil o tablet.</p>
+      <a class="btn" href="/panel/${esc(slug)}">Ir a mi panel</a>
+    </div>
+  </div>`;
+  drawQRs(document,180);
+  $("#c1").onclick=()=>copiar(app);$("#c2").onclick=()=>copiar(panel);
+}
+
+$("#home").onclick=e=>{e.preventDefault();st.step=1;guardar();paso1()};
+(st.step===2&&st.rewards.length)?editor():paso1();
+</script>
+</body>
+</html>

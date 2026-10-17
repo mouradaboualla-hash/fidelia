@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Club de fidelización</title>
+<meta name="theme-color" content="#2b4cff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Figtree:wght@400;600;700&family=JetBrains+Mono:wght@700&display=swap">
+<link rel="stylesheet" href="/styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="/common.js"></script>
+<style>body{background:#f6f6f4;color:#151a17;padding:0}</style>
+</head>
+<body>
+<div class="app-full" id="root"><div style="padding:40px 20px">Cargando…</div></div>
+<script>
+const slug=decodeURIComponent(location.pathname.split("/")[2]||"");
+const KEY="f_me_"+slug;
+let T=null, cli=null;
+
+function cabecera(){
+  document.title=T.nombre+" · Club";
+  document.querySelector('meta[name="theme-color"]').content=T.color;
+  const m=document.createElement("link");m.rel="manifest";m.href=`/a/${slug}/manifest.webmanifest`;document.head.appendChild(m);
+  const i=document.createElement("link");i.rel="apple-touch-icon";i.href=`/a/${slug}/icon.svg`;document.head.appendChild(i);
+  if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{});
+}
+function tarjeta(){
+  $("#root").innerHTML=appHTML(T,{cliente:cli})+`<p class="a-small" style="text-align:center;padding:0 20px 24px">Añade esta app a tu pantalla de inicio desde el menú del navegador.<br><button id="salir" style="background:none;border:0;color:#5b625e;text-decoration:underline;font:inherit;margin-top:8px;cursor:pointer">No soy ${esc(cli.nombre.split(" ")[0])}</button></p>`;
+  drawQRs($("#root"),170);
+  $("#salir").onclick=()=>{lsSet(KEY,null);cli=null;alta()};
+}
+function alta(){
+  const ink=inkFor(T.color);
+  $("#root").innerHTML=`<div style="--brand:${esc(T.color)};--brand-ink:${ink}">
+    <div class="a-head" style="padding-bottom:64px"><div class="who"><div class="a-logo">${T.logo?`<img src="${esc(logoSrc(T.logo))}" alt="">`:esc(T.nombre.charAt(0))}</div><div><div class="a-name">${esc(T.nombre)}</div><div class="a-sub">Club de fidelización</div></div></div>
+    <div class="a-hi">Únete gratis${T.cupon?` y consigue: ${esc(T.cupon)}`:""}</div></div>
+    <div class="a-body">
+      <form class="a-card" id="join" style="display:grid;gap:10px">
+        <p class="a-t">Crea tu tarjeta</p>
+        <input class="a-in" id="jn" type="text" placeholder="Tu nombre" autocomplete="given-name" maxlength="60">
+        <input class="a-in" id="jt" type="tel" placeholder="Tu móvil (opcional)" autocomplete="tel" maxlength="20">
+        <label class="a-small" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="jok" style="margin-top:2px"> Acepto que ${esc(T.nombre)} guarde mi nombre y mis puntos para el club.</label>
+        <div class="a-small" id="je" style="color:#b4541a"></div>
+        <button class="a-btn" type="submit">Conseguir mi tarjeta</button>
+      </form>
+      <div class="a-card"><p class="a-t">Lo que puedes conseguir</p>${[...T.rewards].sort((a,b)=>a.p-b.p).map(r=>`<div class="rew">${esc(r.t)}<span class="c">${r.p} pts</span></div>`).join("")}</div>
+    </div></div>`;
+  $("#join").onsubmit=async e=>{e.preventDefault();
+    const n=$("#jn").value.trim(); if(n.length<2){$("#je").textContent="Escribe tu nombre.";return}
+    if(!$("#jok").checked){$("#je").textContent="Marca la casilla para continuar.";return}
+    const b=e.submitter||$("#join button");b.disabled=true;
+    try{cli=await api("/api/clientes",{method:"POST",body:{slug,nombre:n,tel:$("#jt").value.trim()}});lsSet(KEY,cli.code);tarjeta()}
+    catch(err){$("#je").textContent=err.message;b.disabled=false}
+  };
+}
+async function refrescar(){
+  const code=lsGet(KEY,null); if(!code||document.hidden)return;
+  try{const n=await api(`/api/clientes?slug=${encodeURIComponent(slug)}&code=${encodeURIComponent(code)}`);
+    if(!cli||n.puntos!==cli.puntos||(n.movimientos||[]).length!==(cli.movimientos||[]).length){cli=n;tarjeta()}}catch(e){}
+}
+(async()=>{
+  try{T=await api("/api/tiendas?slug="+encodeURIComponent(slug))}
+  catch(e){$("#root").innerHTML=`<div style="padding:40px 20px"><h2>No encontramos esta app</h2><p>Revisa el enlace o el QR que te dio la tienda.</p></div>`;return}
+  cabecera();
+  const code=lsGet(KEY,null);
+  if(code){try{cli=await api(`/api/clientes?slug=${encodeURIComponent(slug)}&code=${encodeURIComponent(code)}`);tarjeta()}catch(e){if(e.status===404){lsSet(KEY,null);alta()}else{$("#root").innerHTML=`<div style="padding:40px 20px">Sin conexión. Inténtalo de nuevo en un momento.</div>`}}}
+  else alta();
+  setInterval(refrescar,15000); document.addEventListener("visibilitychange",refrescar);
+})();
+</script>
+</body>
+</html>

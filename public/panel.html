@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Panel de tienda · Fidelia</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="/styles.css">
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="/common.js"></script>
+</head>
+<body>
+<header class="top wrap"><div class="in">
+  <a class="brand" href="/"><i>F</i>fidelia</a>
+  <div class="steps" id="steps">Panel de tienda</div>
+  <button class="btn ghost sm" id="out" hidden>Salir</button>
+</div></header>
+<main class="wrap" id="root"></main>
+<script>
+const slug=decodeURIComponent(location.pathname.split("/")[2]||"");
+let clave=(lsGet("f_mias",{})[slug])||lsGet("f_panel_"+slug,null);
+let T=null, sel=null, datos=null, lector=null;
+const P=(accion,extra={})=>api("/api/panel",{method:"POST",body:{slug,clave,accion,...extra}});
+
+function login(msg=""){
+  $("#out").hidden=true;
+  $("#root").innerHTML=`<form class="card form" id="lk"><h2>Entrar al panel</h2><p class="hint">Escribe la clave de 6 cifras que te dimos al crear la app.</p>
+    <div><label class="l" for="k">Clave del panel</label><input id="k" type="password" inputmode="numeric" autocomplete="current-password" maxlength="6"></div>
+    <div class="err" id="ke">${esc(msg)}</div><button class="btn">Entrar</button></form>`;
+  $("#lk").onsubmit=async e=>{e.preventDefault();clave=$("#k").value.trim();
+    try{await P("entrar");lsSet("f_panel_"+slug,clave);cargar()}catch(err){$("#ke").textContent=err.message}};
+}
+async function cargar(){
+  try{datos=await P("resumen");T=datos.tienda}
+  catch(e){if(e.status===401||e.status===404){lsSet("f_panel_"+slug,null);return login(e.status===404?"No encontramos esta tienda. Revisa el enlace.":"")}$("#root").innerHTML=`<p class="err">${esc(e.message)}</p>`;return}
+  $("#out").hidden=false; dibujar();
+}
+function dibujar(){
+  const s=datos.stats, R=T.rewards.map((r,i)=>({...r,i})).sort((a,b)=>a.p-b.p);
+  $("#root").innerHTML=`
+  <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between">
+    <div><div class="eyebrow">Panel de tienda</div><h2 style="margin-top:8px">${esc(T.nombre)}</h2></div>
+    <a class="btn ghost sm" href="/a/${esc(slug)}" target="_blank">Ver la app del cliente</a></div>
+  <div class="stat-row" style="margin-top:20px">
+    <div class="stat"><b>${s.clientes}</b><span>clientes</span></div>
+    <div class="stat"><b>${s.visitas30}</b><span>compras en 30 días</span></div>
+    <div class="stat"><b>${s.puntos}</b><span>puntos sin canjear</span></div>
+    <div class="stat"><b>${s.canjes}</b><span>canjes</span></div></div>
+  <div class="done-grid">
+    <div class="card" style="display:grid;gap:12px;align-content:start">
+      <h3>Sumar o canjear</h3>
+      <button class="btn" type="button" id="esc">Escanear QR del cliente</button>
+      <div id="lector" hidden></div>
+      <form id="bus" style="display:flex;gap:8px"><input id="cc" type="text" placeholder="O escribe el código" style="text-transform:uppercase;font-family:var(--f-mono);letter-spacing:.12em" maxlength="6" value="${sel?esc(sel.code):""}"><button class="btn sm">Buscar</button></form>
+      <div class="err" id="ce"></div>
+      ${sel?`<div style="display:grid;gap:12px;border-top:1px solid var(--line);padding-top:12px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><strong>${esc(sel.nombre)}</strong><span class="code" style="font-size:22px">${sel.puntos} pts</span></div>
+        <div class="addpts">${[1,5,10,20].map(n=>`<button type="button" class="btn ghost sm" data-add="${n}">+${n}</button>`).join("")}
+          <input id="addn" type="number" min="1" placeholder="Otro" style="width:90px;padding:9px 10px"><button type="button" class="btn sm" id="addok">Sumar</button></div>
+        <div style="display:grid;gap:8px">${R.map(r=>`<button type="button" class="btn ${sel.puntos>=r.p?"":"ghost"} sm" data-red="${r.i}" ${sel.puntos>=r.p?"":"disabled"} style="justify-content:space-between">Canjear: ${esc(r.t)}<span>${r.p} pts</span></button>`).join("")}</div>
+      </div>`:`<p class="hint">El cliente abre la app y te enseña su QR o su código de 6 letras.</p>`}
+    </div>
+    <div class="card" style="display:grid;gap:10px;align-content:start"><h3>Clientes</h3>
+      ${datos.clientes.length?`<div class="tbl"><table><thead><tr><th>Cliente</th><th>Código</th><th style="text-align:right">Puntos</th></tr></thead><tbody>
+      ${datos.clientes.map(c=>`<tr data-pick="${esc(c.code)}" style="cursor:pointer"><td>${esc(c.nombre)}${c.tel?`<div class="hint">${esc(c.tel)}</div>`:""}</td><td style="font-family:var(--f-mono)">${esc(c.code)}</td><td class="n">${c.puntos}</td></tr>`).join("")}</tbody></table></div>`
+      :`<p class="hint">Aún no hay clientes. Pon el QR de tu app en el mostrador: cuando alguien cree su tarjeta, aparecerá aquí.</p>`}
+    </div></div>`;
+  $("#bus").onsubmit=e=>{e.preventDefault();elegir($("#cc").value)};
+  document.querySelectorAll("[data-pick]").forEach(r=>r.onclick=()=>{elegir(r.dataset.pick);scrollTo({top:0,behavior:"smooth"})});
+  $("#esc").onclick=escanear;
+  if(sel){
+    document.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>mover("sumar",{puntos:+b.dataset.add}));
+    $("#addok").onclick=()=>{const n=parseInt($("#addn").value);if(n>0)mover("sumar",{puntos:n})};
+    document.querySelectorAll("[data-red]").forEach(b=>b.onclick=()=>mover("canjear",{indice:+b.dataset.red}));
+  }
+}
+async function elegir(code){
+  code=String(code||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"").slice(-6); if(!code)return;
+  try{sel=(await P("buscar",{code})).cliente;dibujar()}catch(e){$("#ce").textContent=e.message}
+}
+let ocupado=false;
+async function mover(accion,extra){
+  if(ocupado)return; ocupado=true;
+  try{const r=await P(accion,{code:sel.code,...extra});sel=r.cliente;toast(r.mensaje);datos=await P("resumen");dibujar()}
+  catch(e){toast(e.message)} finally{ocupado=false}
+}
+async function escanear(){
+  if(!window.Html5Qrcode){toast("No se pudo cargar el lector. Escribe el código.");return}
+  const caja=$("#lector"); caja.hidden=false;
+  if(lector){try{await lector.stop()}catch(e){} lector=null;caja.hidden=true;$("#esc").textContent="Escanear QR del cliente";return}
+  $("#esc").textContent="Cerrar cámara";
+  lector=new Html5Qrcode("lector");
+  try{
+    await lector.start({facingMode:"environment"},{fps:10,qrbox:{width:220,height:220}},async txt=>{
+      try{await lector.stop()}catch(e){} lector=null; caja.hidden=true; elegir(txt);
+    });
+  }catch(e){lector=null;caja.hidden=true;$("#esc").textContent="Escanear QR del cliente";toast("No hay permiso para la cámara. Escribe el código.")}
+}
+$("#out").onclick=()=>{lsSet("f_panel_"+slug,null);const m=lsGet("f_mias",{});delete m[slug];lsSet("f_mias",m);clave=null;sel=null;login()};
+clave?cargar():login();
+</script>
+</body>
+</html>
