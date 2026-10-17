@@ -5,7 +5,10 @@ import net from "node:net";
 import crypto from "node:crypto";
 
 /* ---------- Base de datos ---------- */
-const URL_DB = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+// Acepta cualquier nombre que ponga la integración de Neon (DATABASE_URL, POSTGRES_URL, STORAGE_URL…)
+const URL_DB = process.env.DATABASE_URL || process.env.POSTGRES_URL ||
+  Object.entries(process.env).find(([k, v]) => /_URL$/.test(k) && !/UNPOOLED|NON_POOLING|NO_SSL/.test(k) && /^postgres(ql)?:\/\//.test(v || ""))?.[1] ||
+  Object.values(process.env).find(v => /^postgres(ql)?:\/\//.test(v || ""));
 export const sql = URL_DB ? neon(URL_DB) : null;
 
 let listo = false;
